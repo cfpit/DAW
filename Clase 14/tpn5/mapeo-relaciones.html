@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumen Spring Data JPA - Modelado de Relaciones</title>
+
+    <!-- Librería para el resaltado de sintaxis (Tema claro "GitHub" ideal para proyectar) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/java.min.js"></script>
+    <script>hljs.highlightAll();</script>
+
+    <style>
+        /* Estilos generales para proyección: Fondos blancos/claros, letras oscuras y grandes */
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #ffffff;
+            color: #24292e;
+            line-height: 1.6;
+            padding: 2rem 4rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #0366d6;
+            font-size: 2.5rem;
+            border-bottom: 4px solid #0366d6;
+            padding-bottom: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        h2 {
+            color: #d73a49;
+            font-size: 2rem;
+            margin-top: 3rem;
+            border-bottom: 2px solid #eaecef;
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: #24292e;
+            font-size: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        p {
+            font-size: 1.2rem;
+        }
+
+        /* Configuración del bloque de código */
+        pre {
+            background-color: #f6f8fa;
+            /* Fondo gris muy claro */
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            padding: 1.5rem;
+            font-size: 1.2rem;
+            /* Tamaño grande para leer de lejos */
+            overflow-x: auto;
+            box-shadow: 0 1px 3px rgba(27, 31, 35, 0.12);
+        }
+
+        code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+
+        .info-box {
+            background-color: #e1efff;
+            border-left: 6px solid #0366d6;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Mapeo de Relaciones con Spring Data JPA</h1>
+
+    <div class="info-box">
+        <strong>Nota sobre recursividad:</strong> En todos los ejemplos se utiliza <code>@JsonIgnore</code> en el lado
+        inverso de las colecciones para evitar el bucle infinito al serializar la respuesta JSON en Postman.
+    </div>
+
+    <!-- OPCIÓN A -->
+    <h2>Opción A: Clínica Médica</h2>
+    <p>Relaciones combinadas: <strong>1 a 1</strong> (Paciente-Historia) y <strong>1 a N</strong> intermediadas (Turno
+        conecta Paciente y Médico).</p>
+
+    <h3>1. Entidad Paciente</h3>
+    <pre><code class="language-java">@Entity
+public class Paciente {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // 1 a 1: Dueño de la relación
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "historia_clinica_id") 
+    private HistoriaClinica historiaClinica;
+
+    // 1 a N: Un paciente tiene muchos turnos
+    @OneToMany(mappedBy = "paciente")
+    @JsonIgnore
+    private List&lt;Turno&gt; turnos;
+}</code></pre>
+
+    <h3>2. Entidad HistoriaClinica</h3>
+    <pre><code class="language-java">@Entity
+public class HistoriaClinica {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // 1 a 1: Lado inverso
+    @OneToOne(mappedBy = "historiaClinica")
+    @JsonIgnore
+    private Paciente paciente;
+}</code></pre>
+
+    <h3>3. Entidad Medico</h3>
+    <pre><code class="language-java">@Entity
+public class Medico {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // 1 a N: Un médico atiende muchos turnos
+    @OneToMany(mappedBy = "medico")
+    @JsonIgnore
+    private List&lt;Turno&gt; turnos;
+}</code></pre>
+
+    <h3>4. Entidad Turno</h3>
+    <pre><code class="language-java">@Entity
+public class Turno {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne
+    @JoinColumn(name = "paciente_id")
+    private Paciente paciente;
+
+    @ManyToOne
+    @JoinColumn(name = "medico_id")
+    private Medico medico;
+}</code></pre>
+
+    <hr style="margin: 4rem 0; border: 0; border-top: 1px dashed #ccc;">
+
+    <!-- OPCIÓN B -->
+    <h2>Opción B: Plataforma de E-Learning</h2>
+    <p>Relaciones combinadas: <strong>1 a N</strong> (Profesor-Curso) y <strong>N a M</strong> directa (Curso-Alumno).
+    </p>
+
+    <h3>1. Entidad Profesor</h3>
+    <pre><code class="language-java">@Entity
+public class Profesor {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // 1 a N
+    @OneToMany(mappedBy = "profesor")
+    @JsonIgnore
+    private List&lt;Curso&gt; cursos;
+}</code></pre>
+
+    <h3>2. Entidad Curso (Dueño de la relación N a M)</h3>
+    <pre><code class="language-java">@Entity
+public class Curso {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // N a 1
+    @ManyToOne
+    @JoinColumn(name = "profesor_id")
+    private Profesor profesor;
+
+    // N a M: Creación de la tabla intermedia
+    @ManyToMany
+    @JoinTable(
+        name = "curso_alumno",
+        joinColumns = @JoinColumn(name = "curso_id"),
+        inverseJoinColumns = @JoinColumn(name = "alumno_id")
+    )
+    private List&lt;Alumno&gt; alumnos;
+}</code></pre>
+
+    <h3>3. Entidad Alumno</h3>
+    <pre><code class="language-java">@Entity
+public class Alumno {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // N a M: Lado inverso
+    @ManyToMany(mappedBy = "alumnos")
+    @JsonIgnore
+    private List&lt;Curso&gt; cursos;
+}</code></pre>
+
+    <hr style="margin: 4rem 0; border: 0; border-top: 1px dashed #ccc;">
+
+    <!-- OPCIÓN C -->
+    <h2>Opción C: E-Commerce de Tecnología</h2>
+    <p>Relaciones combinadas: <strong>1 a N</strong> (Categoría-Producto), <strong>1 a 1</strong> (Usuario-Carrito) y
+        <strong>N a M</strong> (Carrito-Producto).</p>
+
+    <h3>1. Entidad Categoria</h3>
+    <pre><code class="language-java">@Entity
+public class Categoria {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @OneToMany(mappedBy = "categoria")
+    @JsonIgnore
+    private List&lt;Producto&gt; productos;
+}</code></pre>
+
+    <h3>2. Entidad Usuario</h3>
+    <pre><code class="language-java">@Entity
+public class Usuario {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // 1 a 1
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "carrito_id")
+    private CarritoDeCompras carrito;
+}</code></pre>
+
+    <h3>3. Entidad CarritoDeCompras</h3>
+    <pre><code class="language-java">@Entity
+public class CarritoDeCompras {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // 1 a 1 inversa
+    @OneToOne(mappedBy = "carrito")
+    @JsonIgnore 
+    private Usuario usuario;
+
+    // N a M: Tabla intermedia
+    @ManyToMany
+    @JoinTable(
+        name = "carrito_producto",
+        joinColumns = @JoinColumn(name = "carrito_id"),
+        inverseJoinColumns = @JoinColumn(name = "producto_id")
+    )
+    private List&lt;Producto&gt; productos;
+}</code></pre>
+
+    <h3>4. Entidad Producto</h3>
+    <pre><code class="language-java">@Entity
+public class Producto {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // N a 1
+    @ManyToOne
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
+
+    // N a M inversa
+    @ManyToMany(mappedBy = "productos")
+    @JsonIgnore
+    private List&lt;CarritoDeCompras&gt; carritos;
+}</code></pre>
+
+</body>
+
+</html>
